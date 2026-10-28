@@ -131,10 +131,3 @@ flowchart LR
 * **Usuários & Instituições:** Tabelas compactas (`py-2.5 px-4`, `text-xs`) com modais CRUD integrados, além de suporte nativo a **importação/exportação em lote via CSV** e geração de relatórios em **PDF** (`window.print()`).
 
 
----
-
-### Por que essa estrutura em um repositório separado é excelente?
-1. **Leitura Nativa no GitHub:** O próprio GitHub vai renderizar os títulos, tabelas, formatações e **todos os diagramas Mermaid instantaneamente** na tela sem precisar de ferramentas externas.
-2. **Organização Limpa:** Qualquer desenvolvedor que entrar em `conecta-vida-docs` encontrará de forma imediata o sumário no `README.md` e poderá navegar diretamente para a API ou para o Frontend.
-
-```
