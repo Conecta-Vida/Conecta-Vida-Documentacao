@@ -1,313 +1,207 @@
 # 🏥 Ecossistema ConectaVida — Documento de Arquitetura de Software (SAD)
 
-**Domínio Base:** `br.edu.ifsp.conectaavida`[cite: 3]  
-**Repositórios Integrados:** `conecta-vida-backend` (Multi-Module Spring Boot API) & `Conecta-Vida-Admin` (SPA React + TypeScript)[cite: 2, 3]  
-**Nível da Especificação:** Engenharia de Software Sênior (RFC / C4 Model / UML)
+**Domínio Base:** `br.edu.ifsp.conectaavida`[cite: 1, 3]  
+**Repositórios Integrados:** `conecta-vida-backend` (Multi-Module Spring Boot) & `Conecta-Vida-Admin` (React + TypeScript SPA)[cite: 1, 2, 3]  
+**Banco de Dados:** PostgreSQL (`schema: public`) com versionamento **Flyway**[cite: 1, 3]  
+**Padrão de Documentação:** Docs-as-Code (C4 Model / UML / ADR)
 
 ---
 
-## 📚 Navegação da Documentação
-Este portal técnico está dividido em três documentos complementares para facilitar o *onboarding* e a manutenção pelos desenvolvedores da equipe:
+## 📚 Portal de Navegação da Documentação
 
-1. 📖 **[Visão Geral e Arquitetura Macro (Este Documento)](#1-visão-executiva-e-contexto-do-sistema)**
-2. ⚙️ **[Especificação Técnica da API e Backend (`API_BACKEND.md`)](./API_BACKEND.md)** — Detalhamento dos módulos `core`, `admin-api` e `mobile-api`, entidades JPA, controladores REST, mensageria RabbitMQ e Firebase[cite: 3].
-3. 💻 **[Especificação Técnica do Painel Administrador (`ADMIN_FRONTEND.md`)](./ADMIN_FRONTEND.md)** — Detalhamento da SPA em React, gerenciamento de estado com TanStack React Query, gráficos Recharts, tabelas compactas e fluxos CRUD[cite: 2].
+Este repositório centraliza a especificação de engenharia de software do projeto **ConectaVida**, dividida em três documentos técnicos:
 
----
-
-## 1. Visão Executiva e Contexto do Sistema
-
-O **ConectaVida** é uma plataforma distribuída voltada à gestão de saúde pública, divulgação de campanhas sanitárias, emissão de alertas epidemiológicos/emergenciais, publicação de notícias, credenciamento de instituições de saúde (Hospitais, UBS e Clínicas) e acompanhamento analítico auditável em tempo real[cite: 2, 3].
-
-A arquitetura resolve o problema de acoplamento entre canais de gestão e canais de leitura pública adotando o padrão **BFF (*Backend for Frontend*) sobre um Monólito Modular Gradle**, separando o tráfego administrativo (`admin-api`) do tráfego de cidadãos móveis (`mobile-api`), enquanto compartilha um núcleo único de domínio, segurança e persistência (`core`)[cite: 3].
+1. 📖 **[Visão Geral e Arquitetura Macro (`README.md` - Este Documento)](#1-visão-executiva-e-propósito-do-ecossistema)** — Contexto de negócio, topologia C4, matriz tecnológica, fluxos ponta a ponta, casos de uso macro, requisitos globais e guia de execução.
+2. ⚙️ **[Especificação Técnica da API, Backend e Banco de Dados (`API_BACKEND.md`)](./API_BACKEND.md)** — Detalhamento dos módulos Gradle (`:core`, `:admin-api`, `:mobile-api`), Diagrama Entidade-Relacionamento (DER) do PostgreSQL, controladores REST, mensageria RabbitMQ e Firebase (FCM)[cite: 1, 3].
+3. 💻 **[Especificação Técnica do Painel Administrador (`ADMIN_FRONTEND.md`)](./ADMIN_FRONTEND.md)** — Arquitetura da Single Page Application (SPA), árvore de componentes React, ciclo de cache com TanStack React Query, gráficos Recharts, tabelas compactas e fluxos de importação/exportação (CSV/PDF)[cite: 2].
 
 ---
 
-## 2. Diagrama de Arquitetura Macro (C4 Model — Visão de Containers)
+## 1. Visão Executiva e Propósito do Ecossistema
+
+O **ConectaVida** é uma plataforma distribuída de gestão em saúde pública e comunicação cidadã[cite: 1, 2, 3]. O sistema resolve a fragmentação de informações sanitárias ao conectar gestores públicos, instituições de saúde (**Hospitais**, **UBS** e **Clínicas**) e cidadãos em uma infraestrutura única[cite: 1, 3].
+
+Através do ecossistema, administradores gerenciam campanhas sanitárias (com controle de vigência e público-alvo), publicam notícias e alertas emergenciais, credenciam unidades de atendimento com grades de horário e auditam todas as operações em tempo real[cite: 1, 3]. Na outra ponta, os cidadãos consomem um feed otimizado no aplicativo móvel, inscrevem-se em campanhas e recebem notificações *push* assíncronas[cite: 1, 3].
+
+### 1.1. Padrões Arquiteturais Adotados
+* **Monólito Modular com BFF (*Backend for Frontend*):** O servidor Java/Spring Boot é segmentado via Gradle em três módulos (`:core`, `:admin-api` e `:mobile-api`)[cite: 1, 3]. As regras de negócio, entidades JPA e integrações residem no `:core`, enquanto `:admin-api` e `:mobile-api` expõem contratos REST isolados e específicos para cada tipo de cliente[cite: 1, 3].
+* **Arquitetura Orientada a Eventos para Notificações:** Disparos de alertas e avisos de campanhas utilizam **RabbitMQ** (`RabbitMQConfig`) aliado ao **Firebase Cloud Messaging** (`FcmService` e `PushTokenRegistry`), desacoplando o tempo de resposta HTTP do envio em massa para os dispositivos móveis[cite: 1, 3].
+* **SPA Reativa Orientada a Server-State:** O painel administrativo (`Conecta-Vida-Admin`) utiliza **React**, **TypeScript** e **TanStack React Query** para manter a interface sincronizada com o backend por meio de invalidação automática de cache, sem recarregamentos de página[cite: 2].
+
+---
+
+## 2. Arquitetura Macro do Sistema (C4 Model — Visão de Containers)
 
 ```mermaid
 flowchart TB
-    subgraph Clientes ["Camada de Apresentação (Clientes)"]
+    subgraph Atores ["Atores do Ecossistema"]
+        AdminUser["👨‍💼 Administrador de Saúde\n(Desktop / Smartphone)"]
+        CidadaoUser["🧑 Cidadão\n(Aplicativo Mobile)"]
+    end
+
+    subgraph FrontendLayer ["Camada de Clientes"]
         AdminSPA["💻 Conecta-Vida-Admin (SPA Web)\nReact + TypeScript + Vite/Rolldown\nTailwind CSS + React Query + Recharts"]
-        MobileApp["📱 Aplicativo Mobile Cidadão\nConsumo de Feed Público & Push"]
+        MobileClient["📱 App Mobile ConectaVida\nCliente Consumidor de Feed e Push"]
     end
 
-    subgraph Backend ["Ecossistema conecta-vida-backend (Java + Spring Boot + Gradle 9.3.0)"]
+    subgraph BackendLayer ["Ecossistema conecta-vida-backend (Spring Boot + Gradle 9.3.0)"]
         direction TB
-        AdminAPI["⚙️ Módulo: admin-api\n12 Controladores REST Administrativos\nCORS + Swagger OpenAPI"]
-        MobileAPI["📲 Módulo: mobile-api\nFeedController & PushTokenController\nSwagger OpenAPI"]
-        CoreJar["🧱 Módulo Compartilhado: core (core-0.0.1-SNAPSHOT)\nDomínio JPA + Spring Data Repositories + MapStruct/Mappers\nPasswordEncryptionService + FcmService + RabbitMQConfig"]
+        AdminAPI["⚙️ Módulo :admin-api\n12 Controladores REST Administrativos\nCorsConfig + SwaggerConfig"]
+        MobileAPI["📲 Módulo :mobile-api\nFeedController + PushTokenController\nSwaggerConfig"]
+        CoreMod["🧱 Módulo Compartilhado :core\nDomínio JPA + Repositórios Spring Data\nUsuarioMapper + PasswordEncryptionService\nDashboardService + FcmService + RabbitMQConfig"]
     end
 
-    subgraph Infra ["Infraestrutura & Serviços Externos (Docker Compose)"]
-        Postgres[("🐘 PostgreSQL\nDatabase: postgres\nSchema: public")]
-        RabbitMQ[["🐇 RabbitMQ\nMessage Broker Assíncrono"]]
-        Firebase(("🔥 Firebase Cloud Messaging\nServiço de Push (FCM)"))
+    subgraph InfraLayer ["Camada de Dados, Mensageria e Nuvem"]
+        PostgresDB[("🐘 PostgreSQL (Schema: public)\nflyway_schema_history | usuarios\ninstituicoes_saude | comunicacoes\nusuarios_campanhas | logs_atividade")]
+        RabbitBroker[["🐇 RabbitMQ\nMessage Broker AMQP"]]
+        FirebaseCloud(("🔥 Firebase Cloud Messaging\nServiço Externo de Push"))
     end
 
-    AdminSPA -- "HTTPS / JSON (Axios)\n/api/..." --> AdminAPI
-    MobileApp -- "HTTPS / JSON\nFeed & Push Token" --> MobileAPI
+    AdminUser --> AdminSPA
+    CidadaoUser --> MobileClient
 
-    AdminAPI --> CoreJar
-    MobileAPI --> CoreJar
+    AdminSPA -- "REST / JSON via Axios\n(/api/...)" --> AdminAPI
+    MobileClient -- "REST / JSON\n(Feed & Registro de Token)" --> MobileAPI
 
-    CoreJar -- "JPA / Hibernate (JDBC)" --> Postgres
-    CoreJar -- "AMQP (Eventos de Alerta/Campanha)" --> RabbitMQ
-    CoreJar -- "SDK / HTTP Push" --> Firebase
+    AdminAPI --> CoreMod
+    MobileAPI --> CoreMod
 
+    CoreMod -- "JPA / Hibernate / Flyway" --> PostgresDB
+    CoreMod -- "Publica/Consome Eventos AMQP" --> RabbitBroker
+    CoreMod -- "Dispara Notificações Push" --> FirebaseCloud
+    FirebaseCloud -. "Push Notification" .-> MobileClient
 ```
 
 ---
 
-## 3. Matriz Tecnológica do Ecossistema
+## 3. Matriz Tecnológica Consolidada
 
-| Camada | Tecnologia / Ferramenta | Versão / Artefato | Responsabilidade Arquitetural |
-| --- | --- | --- | --- |
-| **Build & Orquestração Backend** | Gradle Wrapper | `9.3.0` | Automação de build multi-módulo (`core`, `admin-api`, `mobile-api`).
-
- |
-| **Framework Backend** | Spring Boot (Web, Data JPA, Security/Crypto, AMQP) | `0.0.1-SNAPSHOT` | Injeção de dependência, exposição REST, transações e ORM.
-
- |
-| **Banco de Dados Relacional** | PostgreSQL | Schema `public` | Persistência transacional de usuários, instituições, comunicações e logs.
-
- |
-| **Mensageria & Push** | RabbitMQ + Firebase (FCM) | `RabbitMQConfig` / `FcmService` | Desacoplamento de disparos em massa e notificações push móveis.
-
- |
-| **Mapeamento de Dados** | Processador de Anotações (`UsuarioMapper`) | `UsuarioMapperImpl` | Conversão segura Entidade $\leftrightarrow$ DTO em tempo de compilação.
-
- |
-| **Bundler & Linter Frontend** | Vite + Rolldown + Oxlint | `.oxlintrc.json` + `tsc` | Bundling de alta performance e análise estática em TypeScript.
-
- |
-| **UI & Estado Assíncrono** | React + `@tanstack/react-query` + Axios | SPA (`conecta-vida-admin`) | Cache reativo de estado de servidor, mutações e invalidação automática.
-
- |
-| **Visualização & Design** | Tailwind CSS + Recharts + Lucide React | Responsivo Desktop/Mobile | Tabelas compactas, sidebar fixa azul e gráficos analíticos SVG.
-
- |
+| Camada | Tecnologia / Biblioteca | Artefato / Configuração | Papel Arquitetural no Projeto |
+| :--- | :--- | :--- | :--- |
+| **Orquestração Backend** | Gradle Wrapper | `gradle-9.3.0` (`settings.gradle`) | Gerenciamento de build multi-módulo (`:core`, `:admin-api`, `:mobile-api`)[cite: 1, 3]. |
+| **Backend Core & Web** | Java + Spring Boot | `0.0.1-SNAPSHOT` | Injeção de dependência, APIs RESTful, controle transacional e segurança[cite: 1, 3]. |
+| **Persistência & Migração** | PostgreSQL + Spring Data JPA + Flyway | `public.flyway_schema_history` | Persistência relacional e versionamento determinístico de schema SQL[cite: 1, 3]. |
+| **Mensageria & Push** | RabbitMQ + Firebase (FCM) | `RabbitMQConfig` / `FcmService` | Processamento assíncrono em fila e entrega de notificações móveis[cite: 1, 3]. |
+| **Mapeamento & Segurança** | Annotation Processor + Crypto | `UsuarioMapperImpl` / `PasswordEncryptionService` | Conversão Entidade-DTO sem vazamento de senha e hashing criptográfico[cite: 1, 3]. |
+| **Documentação de API** | OpenAPI 3 / Swagger | `SwaggerConfig.java` | Especificação interativa das rotas em `:admin-api` e `:mobile-api`[cite: 1, 3]. |
+| **Build & Lint Frontend** | Vite + Rolldown + TypeScript + Oxlint | `.oxlintrc.json` / `tsc` | Empacotamento ultrarrápido e verificação estática de tipos e código[cite: 2]. |
+| **Estado & Rede Frontend** | `@tanstack/react-query` + `axios` | `src/lib/api.ts` | Gerenciamento de cache de servidor, *mutations* e *refetch* automático[cite: 2]. |
+| **UI, Gráficos & Ícones** | Tailwind CSS + Recharts + Lucide React | `Dashboard.tsx` / `AdminLayout.tsx` | Estilização responsiva, gráficos analíticos SVG e iconografia vetorial[cite: 2]. |
 
 ---
 
-## 4. Diagrama Geral de Casos de Uso do Ecossistema (UML)
+## 4. Fluxo Integrado Ponta a Ponta (Sequência Macro do Ecossistema)
+
+O diagrama abaixo demonstra como uma operação realizada pelo Administrador no painel web reverbera no banco de dados PostgreSQL, gera auditoria, aciona a mensageria e alcança o Cidadão no aplicativo móvel[cite: 1, 2, 3]:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Admin as "👨‍💼 Administrador"
+    participant SPA as "💻 Conecta-Vida-Admin"
+    participant AAPI as "⚙️ Modulo admin-api"
+    participant Core as "🧱 Modulo core"
+    participant DB as "🐘 PostgreSQL"
+    participant RMQ as "🐇 RabbitMQ / FCM"
+    participant MAPI as "📲 Modulo mobile-api"
+    actor Cidadao as "🧑 Cidadão (App)"
+
+    Admin->>SPA: Cadastra Campanha e aciona Notificação
+    SPA->>AAPI: POST /api/campanhas + Disparo de Notificação
+    activate AAPI
+    AAPI->>Core: CampanhaService & LogAtividadeRepository
+    Core->>DB: INSERT INTO public.comunicacoes & public.logs_atividade
+    Core->>RMQ: Publica evento de notificação para inscritos
+    AAPI-->>SPA: HTTP 201 Created / 202 Accepted
+    deactivate AAPI
+
+    SPA->>AAPI: Invalidates Cache -> GET /api/dashboard/stats
+    AAPI->>DB: Consulta agregada (KPIs, Gráficos e Logs Ao Vivo)
+    AAPI-->>SPA: Atualiza gráficos Recharts e feed de Auditoria
+
+    RMQ-->>Cidadao: Entrega Push Notification via Firebase (FcmService)
+    Cidadao->>MAPI: Abre App -> GET Feed (FeedController)
+    MAPI->>DB: SELECT * FROM public.comunicacoes WHERE status = Ativo
+    MAPI-->>Cidadao: Exibe Campanha atualizada no Feed
+```
+
+---
+
+## 5. Casos de Uso Globais do Sistema (UML)
 
 ```mermaid
 flowchart LR
-    Admin(["👨‍💼 Administrador do Sistema"])
-    Cidadao(["🧑 Cidadão (App Mobile)"])
-    ServicosExternos(["🔔 RabbitMQ & Firebase FCM"])
+    Admin(["👨‍💼 Administrador"])
+    Cidadao(["🧑 Cidadão"])
+    Broker(["🔔 RabbitMQ & FCM"])
 
-    subgraph Ecossistema ["Ecossistema ConectaVida"]
-        UC01("UC01: Autenticar e Gerenciar Sessão Administrativa")
-        UC02("UC02: Monitorar KPIs, Gráficos e Auditoria Ao Vivo")
-        UC03("UC03: Gerenciar Usuários e Importar/Exportar Base (CSV/PDF)")
-        UC04("UC04: Gerenciar Instituições e Unidades de Saúde")
-        UC05("UC05: Gerenciar Campanhas, Notícias, Alertas e Comunicações")
-        UC06("UC06: Disparar Notificações Push para Inscritos")
-        UC07("UC07: Emitir Relatórios Gerenciais")
-        UC08("UC08: Consultar Feed Público e Inscrever-se em Campanhas")
-        UC09("UC09: Registrar Token Push do Dispositivo")
-        UC10("UC10: Gravar Log de Atividade Automaticamente")
+    subgraph ConectaVida ["Ecossistema ConectaVida"]
+        UC01["UC01: Autenticar no Painel e Controlar Sessão"]
+        UC02["UC02: Monitorar KPIs, Gráficos e Logs Ao Vivo"]
+        UC03["UC03: Gerenciar Usuários e Importar/Exportar CSV e PDF"]
+        UC04["UC04: Gerenciar Instituições (Hospital, UBS, Clínica)"]
+        UC05["UC05: Publicar Campanhas, Notícias e Alertas"]
+        UC06["UC06: Disparar Notificações Push para Inscritos"]
+        UC07["UC07: Extrair Relatórios Gerenciais"]
+        UC08["UC08: Consultar Feed Móvel e Inscrever-se em Campanhas"]
+        UC09["UC09: Registrar Push Token do Aparelho"]
+        UC10["UC10: Registrar Trilha de Auditoria em logs_atividade"]
     end
 
     Admin --> UC01 & UC02 & UC03 & UC04 & UC05 & UC06 & UC07
     Cidadao --> UC08 & UC09
+    UC06 --> Broker
+    Broker --> Cidadao
 
-    UC03 & UC04 & UC05 & UC08 -. "<<include>>" .-> UC10
-    UC06 --> ServicosExternos
-    ServicosExternos --> Cidadao
-
+    UC03 -. "include" .-> UC10
+    UC04 -. "include" .-> UC10
+    UC05 -. "include" .-> UC10
+    UC08 -. "include" .-> UC10
 ```
 
 ---
 
-## 5. Requisitos Globais Não Funcionais (RNFs Macro)
+## 6. Requisitos Globais do Projeto
 
-* **RNF-G01 — Isolamento de Superfície de Ataque (BFF Pattern):** Rotas administrativas de escrita e exclusão (`admin-api`) são fisicamente separadas da API pública consumida pelos dispositivos móveis (`mobile-api`), permitindo políticas de *rate-limiting*, firewall e escalonamento independentes.
+### 6.1. Requisitos Funcionais Macro (RF)
+* **RF01 — Governança Centralizada de Saúde:** Permitir o cadastro, pesquisa, edição e exclusão de instituições de saúde (`public.instituicoes_saude`), classificadas estritamente em **Hospital**, **UBS** ou **Clínica**, com grade de atendimento semanal.
+* **RF02 — Gestão de Cidadãos e Administradores:** Controlar contas de acesso (`public.usuarios`) com distinção de papéis (`ADMIN` / `Usuário Comum`), suportando importação em lote via planilha CSV e exportação em CSV e PDF.
+* **RF03 — Publicação Multicanal Polimórfica:** Gerenciar campanhas sanitárias, notícias e alertas urgentes na estrutura unificada `public.comunicacoes`, vinculando-os às instituições promotoras (`fk_comunicacao_instituicao`).
+* **RF04 — Engajamento e Inscrições em Campanhas:** Permitir o vínculo de cidadãos a campanhas (`public.usuarios_campanhas`) com rastreamento de leitura de notificações (`notificacao_lida`).
+* **RF05 — Observabilidade e Auditoria em Tempo Real:** Apresentar no Dashboard indicadores consolidados, curva de entrada mensal de novos usuários, distribuição geral de registros e listagem ao vivo da tabela `public.logs_atividade`[cite: 1, 3].
 
+### 6.2. Requisitos Não Funcionais Macro (RNF / ADRs)
+* **RNF01 — Segregação Física de APIs (Segurança e Escalabilidade):** O módulo `:mobile-api` expõe apenas operações de consulta pública e registro de token (`FeedController`, `PushTokenController`), mantendo todas as rotas administrativas isoladas no módulo `:admin-api`[cite: 1, 3].
+* **RNF02 — Integridade Relacional e Evolução Determinística:** O banco de dados PostgreSQL aplica chaves estrangeiras explícitas (`fk_comunicacao_instituicao`, `fk_log_usuario`, `fk_usuarios_campanhas_usuario_id`, `fk_usuarios_campanhas_comunicacao_id`) e controla versões de schema via **Flyway** (`public.flyway_schema_history`).
+* **RNF03 — Imunidade a Falhas de Serialização ORM:** A comunicação entre repositórios JPA e controladores REST utiliza transações de leitura otimizadas e mapeamento explícito para DTOs (`DashboardStatsDTO`, `ChartDataDTO`, `UsuarioResponseDTO`), prevenindo `LazyInitializationException` e recursão infinita JSON[cite: 1, 3].
+* **RNF04 — Responsividade Híbrida e Estabilidade Visual:** A interface administrativa adapta-se a monitores desktop e smartphones, mantendo a barra lateral e o botão de encerramento de sessão sempre acessíveis sem quebras de layout por *overflow* horizontal[cite: 2].
 
-* **RNF-G02 — Paridade de Ambiente via Infraestrutura como Código:** O arquivo `docker-compose.yml` na raiz do backend padroniza o provisionamento do banco PostgreSQL e dos serviços auxiliares para todos os desenvolvedores da equipe.
+---
 
+## 7. Guia Rápido de Onboarding e Execução Local
 
-* **RNF-G03 — Rastreabilidade e Auditoria Completa:** Qualquer alteração crítica de estado no sistema gera um registro na entidade `LogAtividade`, garantindo transparência operacional em saúde pública.
+### 7.1. Subindo a Infraestrutura e o Backend (`conecta-vida-backend`)
+```bash
+# 1. Subir os containers de infraestrutura (PostgreSQL / RabbitMQ)
+cd conecta-vida-backend
+docker-compose up -d
 
+# 2. Compilar todos os módulos (:core, :admin-api, :mobile-api)
+./gradlew clean build
 
+# 3. Iniciar a API Administrativa (:admin-api)
+./gradlew :admin-api:bootRun
 
+# 4. Iniciar a API Mobile (:mobile-api) em outro terminal
+./gradlew :mobile-api:bootRun
 ```
 
+### 7.2. Subindo o Painel Administrador (`Conecta-Vida-Admin`)
+```bash
+# 1. Acessar o diretório da aplicação web
+cd Conecta-Vida-Admin/conecta-vida-admin
 
----
-
-# 📄 DOCUMENTO 3: Focado no Administrador (`ADMIN_FRONTEND.md`)
-
-> **📋 Copie tudo abaixo e cole no seu arquivo `ADMIN_FRONTEND.md`:**
-
-```markdown
-# 💻 Especificação Técnica do Painel Administrador (`Conecta-Vida-Admin`)
-
-**Diretório Base:** `Conecta-Vida-Admin/conecta-vida-admin`[cite: 2]  
-**Branches Registradas:** `main`, `conecta-vida-admin-V2`[cite: 2]  
-**Stack Principal:** React + TypeScript + Vite/Rolldown + Tailwind CSS + TanStack React Query + Recharts + Axios + Lucide React + Oxlint[cite: 2]
-
----
-
-## 1. Arquitetura Interna do Frontend (SPA)
-
-O projeto `Conecta-Vida-Admin` foi arquitetado como uma **Single Page Application (SPA)** modular focada em alta densidade visual, responsividade híbrida (Desktop/Mobile) e sincronização reativa de estado de servidor (*Server State*)[cite: 2].
-
-```mermaid
-flowchart TB
-    subgraph Entry ["Inicialização e Roteamento"]
-        Main["main.tsx / index.html\n(react-dom/client)"]
-        App["App.tsx\nQueryClientProvider + BrowserRouter"]
-    end
-
-    subgraph LayoutLayer ["Camada de Layout e Sessão"]
-        AdminLayout["layouts/AdminLayout.tsx\nSidebar Azul Responsiva (Desktop Static h-screen / Mobile Drawer)\nOrdem Estrita: 1. Dashboard | 2. Usuários | 3. Campanhas | 4. Instituições\nBotão Fixo: Sair do Sistema (Logout)"]
-        LoginView["pages/Login.tsx\nAutenticação de Administradores"]
-    end
-
-    subgraph Views ["Páginas de Gestão (Views)"]
-        DashView["pages/Dashboard.tsx\n4 KPIs + Destaque Admin Ativo\nLineChart (Usuários/Mês) + BarChart (Distribuição)\nFeed Ao Vivo de Logs de Atividade"]
-        UsersView["pages/Usuarios.tsx\nTabela Compacta + Filtro Instantâneo\nModal CRUD + Importar CSV / Exportar CSV / PDF"]
-        CampView["pages/Campanhas.tsx\nGestão de Campanhas Sanitárias"]
-        InstView["pages/Instituicoes.tsx\nTabela Compacta + Modal CRUD\nSeletor Padronizado: Hospital | UBS | Clínica"]
-    end
-
-    subgraph DataLayer ["Camada de Dados e Rede"]
-        ReactQuery["@tanstack/react-query\nuseQuery (Cache) & useMutation (Invalidate)"]
-        AxiosClient["lib/api.ts (Axios)\nComunicação REST com admin-api"]
-    end
-
-    Main --> App
-    App --> LoginView & AdminLayout
-    AdminLayout -- "<Outlet/>" --> DashView & UsersView & CampView & InstView
-    DashView & UsersView & CampView & InstView --> ReactQuery
-    ReactQuery --> AxiosClient
-
-```
-
----
-
-## 2. Organização da Arquitetura de Pastas
-
-```text
-Conecta-Vida-Admin/conecta-vida-admin/
- ├── .oxlintrc.json               # Regras de linting ultrarrápido (Oxlint)
- ├── index.html                   # Ponto de entrada HTML da SPA
- ├── src/
- │   ├── lib/
- │   │   └── api.ts               # Instância Axios configurada para a admin-api
- │   ├── layouts/
- │   │   └── AdminLayout.tsx      # Layout mestre com Sidebar Azul e Logout fixo
- │   ├── pages/
- │   │   ├── Dashboard.tsx        # Painel Analítico (Recharts + Logs Ao Vivo)
- │   │   ├── Usuarios.tsx         # Gestão de Usuários (Tabela Compacta + CSV/PDF)
- │   │   ├── Campanhas.tsx        # Gestão de Campanhas
- │   │   ├── Instituicoes.tsx     # Gestão de Instituições (Hospital / UBS / Clínica)
- │   │   └── Login.tsx            # Tela de Login Administrativo
- │   ├── App.tsx                  # Árvore de Rotas e Provider do React Query
- │   └── main.tsx                 # Bootstrap do React DOM
-
-```
-
----
-
-## 3. Engenharia de Interface e Decisões Técnicas de UI/UX
-
-### 3.1. Barra Lateral e Controle de Viewport (`AdminLayout.tsx`)
-
-* **Sequência Estrita de Navegação:** Os itens do menu lateral são renderizados na ordem imutável definida pela arquitetura de produto:
-1. **Dashboard** (`/`)
-2. **Usuários** (`/usuarios`)
-3. **Campanhas** (`/campanhas`)
-4. **Instituições** (`/instituicoes`)
-
-
-* **Persistência Visual do Botão de Logout:** O elemento `<aside>` utiliza `fixed lg:static inset-y-0 left-0 h-screen` sem conflito de propriedades CSS (`cssConflict` eliminado entre `fixed` e `sticky`). Isso garante que, mesmo quando a tabela de usuários ou campanhas possuir mais de 1.000 linhas, o menu lateral não role junto com a página e o botão **"Sair do Sistema"** permaneça sempre visível no canto inferior esquerdo.
-* **Design Adaptativo Mobile (Drawer):** Em telas menores (`< lg`), a barra lateral recolhe-se fora do ecrã (`-translate-x-full`) e exibe uma barra superior (`header`) com botão hambúrguer (`Menu`) e fundo escuro (`bg-black/50`) ao abrir.
-
-### 3.2. Dashboard Analítico e Estabilidade de Grid (`Dashboard.tsx`)
-
-* **Prevenção de Quebra de Layout (Zoom e Redimensionamento):** Todos os containers Flex e Grid principais aplicam `min-w-0` e `overflow-x-hidden`. Isso corrige o problema clássico do `ResponsiveContainer` do **Recharts** onde gráficos SVG expandem indefinidamente ou cortam a tela ao aplicar zoom.
-
-
-* **Prioridade Visual dos Gráficos:**
-1. **Topo Esquerdo (`lg:col-span-2`):** Gráfico de Linha (`LineChart`) exibindo a **Entrada de Novos Usuários por Mês**.
-2. **Base Esquerda (`lg:col-span-2`):** Gráfico de Barras (`BarChart`) exibindo a **Distribuição Geral do Sistema**.
-3. **Coluna Direita (`lg:col-span-1`):** Feed **Ao Vivo de Logs de Atividade**, com cartões individuais onde o texto longo da ação utiliza `break-all whitespace-normal` para nunca vazar para fora da caixa.
-
-
-
-### 3.3. Tabelas Compactas, Modais CRUD e Lotes (`Usuarios.tsx` & `Instituicoes.tsx`)
-
-* **Densidade Visual Compacta:** As tabelas foram refinadas com cabeçalhos `py-2.5 px-4 text-[11px] uppercase` e células `py-3 px-4 text-xs`, eliminando espaços em branco exagerados.
-* **Seletor Padronizado de Instituição:** O modal de criação/edição em `Instituicoes.tsx` restringe o campo `tipoInstituicao` através de um `<select>` com as opções **Hospital**, **UBS** e **Clínica**.
-* **Operações de Importação e Exportação em `Usuarios.tsx`:**
-* **Importar CSV:** Utiliza `FileReader` nativo para ler planilhas `.csv` selecionadas pelo administrador, iterando sobre as linhas e disparando requisições `POST /api/usuarios` antes de invalidar o cache do React Query.
-* **Exportar CSV:** Converte a lista de usuários em memória para um objeto `Blob` (`text/csv;charset=utf-8;`) e inicia o download automático de `usuarios_conectavida_YYYY-MM-DD.csv`.
-* **Imprimir / Exportar PDF:** Aciona a geração de documento via `window.print()`.
-
-
-
----
-
-## 4. Diagrama de Estados e Mutações na Interface (`Usuarios.tsx` / `Instituicoes.tsx`)
-
-```mermaid
-stateDiagram-v2
-    [*] --> CarregandoDados : Mount da Página (useQuery)
-    CarregandoDados --> TabelaRenderizada : HTTP 200 (Dados em Cache)
-    
-    state TabelaRenderizada {
-        [*] --> ListagemCompacta
-        ListagemCompacta --> FiltroInstantaneo : Digita no campo Search
-        FiltroInstantaneo --> ListagemCompacta : Filtra por nome/email em memória
-    }
-
-    TabelaRenderizada --> ModalAberto : Clica em "Novo" ou "Editar"
-    ModalAberto --> ExecutandoMutacao : Submit do Formulário (useMutation POST/PUT)
-    TabelaRenderizada --> ExecutandoMutacao : Clica em "Excluir" (DELETE) ou "Importar CSV"
-    
-    ExecutandoMutacao --> InvalidandoCache : onSuccess -> queryClient.invalidateQueries()
-    InvalidandoCache --> CarregandoDados : Refetch Automático em Background
-
-```
-
----
-
-## 5. Casos de Uso e Requisitos do Painel Administrador
-
-### 5.1. Especificação de Casos de Uso (Frontend)
-
-| Código | Caso de Uso | Ator | Fluxo Principal na Interface |
-| --- | --- | --- | --- |
-| **UC-ADM-01** | **Inspecionar Indicadores e Auditoria** | Administrador | Acessa `/`, visualiza os 4 cartões de resumo, identifica o administrador mais ativo no topo, analisa os gráficos Recharts e acompanha os logs em tempo real.
-
- |
-| **UC-ADM-02** | **Cadastrar e Editar Usuários via Modal** | Administrador | Em `/usuarios`, clica em *Novo Utilizador* ou *Editar*, preenche Nome, E-mail, Senha e Permissão (`COMUM` ou `ADMIN`) e salva sem recarregar a página. |
-| **UC-ADM-03** | **Importar e Exportar Base de Usuários** | Administrador | Em `/usuarios`, utiliza os botões *Importar CSV*, *Exportar CSV* ou *Imprimir / PDF* no cabeçalho para interoperar com planilhas externas. |
-| **UC-ADM-04** | **Gerenciar Instituições de Saúde** | Administrador | Em `/instituicoes`, cadastra ou edita instituições selecionando o tipo entre **Hospital**, **UBS** ou **Clínica**, ou remove registros com confirmação de segurança. |
-| **UC-ADM-05** | **Encerrar Sessão / Trocar de Usuário** | Administrador | Clica no botão fixo *Sair do Sistema* na base da barra lateral em qualquer altura de rolagem; o sistema limpa `token` e `user` do `localStorage` e redireciona para `/login`. |
-
-### 5.2. Requisitos Funcionais do Painel (RF-UI)
-
-* **RF-UI-01:** Exibir menu lateral azul com destaque ativo e ordem fixa: *Dashboard*, *Usuários*, *Campanhas* e *Instituições*.
-* **RF-UI-02:** Permitir filtragem instantânea por texto (nome ou e-mail) nas tabelas de Usuários e Instituições.
-* **RF-UI-03:** Fornecer modais de criação e edição com feedback visual de carregamento (`isPending` -> *"A salvar..."*).
-* **RF-UI-04:** Suportar importação de arquivos `.csv` e exportação em `.csv` e PDF diretamente na tela de usuários.
-
-### 5.3. Requisitos Não Funcionais do Painel (RNF-UI)
-
-* **RNF-UI-01 (Responsividade Mobile-First e Desktop):** O painel deve operar perfeitamente tanto em monitores widescreen quanto em smartphones de administradores em campo, alternando entre sidebar estática (`lg:static`) e menu retrátil (`fixed` com *backdrop*).
-* **RNF-UI-02 (Zero-Reload State Sync):** Configurado com `refetchOnWindowFocus: false` e `retry: 1` no `QueryClient`, garantindo atualização reativa das tabelas apenas quando mutações (`useMutation`) forem concluídas com sucesso.
-
-
-* **RNF-UI-03 (Qualidade de Código e Tipagem Estrita):** Validado estaticamente via **TypeScript** (`tsc`) e **Oxlint** (`.oxlintrc.json`), assegurando interfaces tipadas (`Usuario`, `Instituicao`, `DashboardStats`) e ausência de conflitos de classes Tailwind CSS.
-
-
-
-```
-
+# 2. Instalar as dependências e iniciar o servidor Vite
+npm install
+npm run dev
 ```
