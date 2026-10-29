@@ -1,41 +1,116 @@
-# 💻 Especificação Técnica do Painel Administrador (`Conecta-Vida-Admin`)
+# 💻 Especificação Técnica e Guia de Arquitetura do Painel Administrador (`Conecta-Vida-Admin`)
 
-**Diretório do Projeto:** `Conecta-Vida-Admin/conecta-vida-admin`[cite: 2]  
+**Diretório do Projeto:** `Conecta-Vida-Admin/conecta-vida-admin`[cite: 2, 4]  
 **Branches Registradas:** `main`, `conecta-vida-admin-V2`[cite: 2]  
-**Stack de Engenharia:** React + TypeScript + Vite (Rolldown) + Tailwind CSS + TanStack React Query + Recharts + Axios + Lucide React + Oxlint[cite: 2]
+**Stack de Engenharia:** React + TypeScript + Vite (Rolldown) + Tailwind CSS + TanStack React Query + Recharts + Axios + Lucide React + Oxlint[cite: 2]  
+**Padrão Arquitetural:** Arquitetura Híbrida (*Feature-Based* + *Layered Scaffolding*) orientada a *Server-State Cache*[cite: 2, 4]
 
 ---
 
-## 1. Visão Arquitetural da Aplicação Frontend
+## 1. Visão Arquitetural da Aplicação Frontend (Por que usamos esta Arquitetura?)
 
-O **Conecta-Vida-Admin** é uma Single Page Application (SPA) desenvolvida em **React** e **TypeScript**, projetada especificamente para operadores e gestores de saúde pública[cite: 2]. A arquitetura prioriza **alta densidade de dados em tabelas compactas**, **estabilidade geométrica de gráficos responsivos**, **navegação persistente em qualquer profundidade de rolagem** e **sincronização reativa de dados sem reload de página**[cite: 2].
+O **Conecta-Vida-Admin** é uma Single Page Application (SPA) desenvolvida em **React** e **TypeScript**, projetada para operadores e gestores de saúde pública[cite: 2]. 
+
+Diferente da arquitetura tradicional (como o padrão MVC clássico do React ou arquiteturas baseadas em Redux/Context API onde todas as chamadas HTTP precisam passar por `services` $\rightarrow$ `actions` $\rightarrow$ `reducers` $\rightarrow$ `store` antes de chegar na tela), este projeto adota uma **Arquitetura Moderna Orientada a *Server-State* combinada com *Enterprise Scaffolding***[cite: 2, 4].
+
+### 1.1. Os 4 Pilares desta Arquitetura (Guia para a Equipe)
+
+1. **Separação Estrita entre *Server State* e *Client State* (Por que não usamos Redux/Store global para a API):**
+   * **Server State (Estado do Servidor):** Todos os dados que vêm do backend Spring Boot (usuários, instituições, campanhas, métricas e logs do dashboard) pertencem ao servidor. Em vez de duplicá-los manualmente dentro da pasta `store/`, utilizamos o **TanStack React Query (`@tanstack/react-query`)**[cite: 2]. Ele gerencia automaticamente o cache em memória, o estado de carregamento (`isLoading`, `isPending`), o tratamento de erros e a atualização automática das tabelas após cadastros ou exclusões (`invalidateQueries`).
+   * **Client State (Estado Local de UI):** Estados puramente visuais e passageiros (como se um modal está aberto ou fechado, qual texto está digitado na barra de pesquisa ou os campos de um formulário antes de salvar) ficam isolados dentro da própria página via `useState`.
+2. **Co-localização Pragmática (*Co-location*) vs. Camadas Vazias:**
+   * Na criação do projeto, foi gerado um **esqueleto corporativo completo (*Enterprise Folder Scaffolding*)** dentro de `src/` contendo 12 pastas padronizadas (`assets`, `components`, `config`, `features`, `hooks`, `layouts`, `lib`, `pages`, `routes`, `services`, `store`, `utils`)[cite: 4].
+   * Para evitar *over-engineering* (excesso de arquivos pequenos espalhados sem necessidade), as chamadas de leitura (`useQuery`) e escrita (`useMutation`) consomem diretamente a instância central do Axios (`src/lib/api.ts`) dentro das páginas (`src/pages/`) ou módulos de domínio (`src/features/`)[cite: 2, 4]. Por esse motivo, pastas como `services/`, `store/` e `routes/` permanecem vazias como **pontos de extensão reservados** para quando o projeto escalar[cite: 4].
+3. **Estabilidade Geométrica e Resiliência contra *Overflow*:**
+   * Painéis administrativos com gráficos SVG (**Recharts**)[cite: 2] e listas de auditoria ao vivo costumam quebrar o layout ao aplicar zoom ou redimensionar a janela. Esta arquitetura resolve isso aplicando contenção flexível (`min-w-0` e `overflow-x-hidden`) em todos os containers estruturais e tabelas compactas de alta densidade (`text-xs`).
+4. **Navegação Persistente Baseada em Viewport (`h-screen`):**
+   * A barra lateral (`AdminLayout.tsx`) é desacoplada da rolagem do documento principal. Enquanto o conteúdo das tabelas rola livremente para exibir milhares de registros, o menu lateral permanece travado na altura da tela (`h-screen`), garantindo que o botão **"Sair do Sistema"** esteja sempre acessível no canto inferior esquerdo.
 
 ---
 
-## 2. Diagrama de Arquitetura de Componentes e Fluxo de Dados
+## 2. Mapeamento e Propósito de Cada Pasta no Projeto
+
+Esta seção documenta tanto a raiz do repositório quanto cada uma das **12 pastas e 4 arquivos base dentro de `src/`**[cite: 2, 4], explicando para toda a equipe quais diretórios concentram o código atual e para que servem as pastas estruturais que estão vazias.
+
+### 2.1. Estrutura Geral da Raiz do Projeto (`Conecta-Vida-Admin/conecta-vida-admin/`)
+
+```text
+Conecta-Vida-Admin/conecta-vida-admin/
+ ├── .git/                        # Controle de versão Git (branches: main e conecta-vida-admin-V2)
+ ├── node_modules/                # Dependências instaladas e cache pré-empacotado do Vite (.vite/deps)
+ ├── src/                         # Código-fonte principal da aplicação React + TypeScript
+ ├── .gitignore                   # Regras de arquivos ignorados pelo Git
+ ├── .oxlintrc.json               # Configuração do linter estático ultrarrápido Oxlint
+ ├── index.html                   # Template HTML raiz onde a SPA é montada (<div id="root">)
+ └── package.json                 # Manifesto de dependências, scripts Vite/Rolldown e TypeScript
+```
+
+### 2.2. Mapeamento Completo de `src/` (Pastas Ativas vs. Pastas Estruturais/Vazias)
+
+```text
+Conecta-Vida-Admin/conecta-vida-admin/src/
+ ├── 📂 assets/                   # [ATIVA] Recursos estáticos (imagens, ícones SVG, logos)
+ ├── 📂 components/               # [ATIVA] Componentes visuais compartilhados de UI
+ ├── 📂 config/                   # [ESTRUTURAL / VAZIA] Configurações e constantes globais
+ ├── 📂 features/                 # [ATIVA] Módulos isolados por domínio/funcionalidade
+ ├── 📂 hooks/                    # [ESTRUTURAL / VAZIA] Custom Hooks globais reutilizáveis
+ ├── 📂 layouts/                  # [ATIVA / CORE] Esqueleto mestre do painel (AdminLayout.tsx)
+ ├── 📂 lib/                      # [ATIVA / CORE] Instâncias configuradas de bibliotecas (api.ts - Axios)
+ ├── 📂 pages/                    # [ATIVA / CORE] Telas principais associadas às rotas da aplicação
+ ├── 📂 routes/                   # [ESTRUTURAL / VAZIA] Mapeamento modular de rotas e Guards
+ ├── 📂 services/                 # [ESTRUTURAL / VAZIA] Camada tradicional de serviços de API
+ ├── 📂 store/                    # [ESTRUTURAL / VAZIA] Gerenciamento de estado global (Client-State)
+ ├── 📂 utils/                    # [ESTRUTURAL / VAZIA] Funções puras de formatação e validação
+ ├── 📄 App.css                   # (3 KB) Estilos complementares do componente raiz App
+ ├── 📄 App.tsx                   # (2 KB) Configuração do QueryClientProvider e Rotas (React Router)
+ ├── 📄 index.css                 # (1 KB) Diretivas globais do Tailwind CSS e reset visual
+ └── 📄 main.tsx                  # (1 KB) Ponto de entrada que renderiza o React no DOM
+```
+
+### 2.3. Dicionário Detalhado das Pastas de `src/` (Para entendimento da Equipe)
+
+| Pasta / Arquivo em `src/` | Status Atual | O que faz na Arquitetura e Por que existe (Mesmo se estiver vazia) |
+| :--- | :---: | :--- |
+| **`assets/`**[cite: 4] | 🟢 **Em Uso** | Guarda arquivos estáticos importados pelo bundler Vite, como logotipos do ConectaVida, ilustrações e ícones locais. |
+| **`components/`**[cite: 4] | 🟢 **Em Uso** | Armazena componentes de interface genéricos e desacoplados de regras de negócio (ex: botões padronizados, cartões de estatística, cabeçalhos, badges ou modais base) que podem ser reutilizados em mais de uma tela. |
+| **`config/`**[cite: 4] | ⚪ **Vazia (Reserva)** | **Para que serve:** Guardar constantes globais do sistema (ex: limites de paginação, chaves de configuração do Firebase/ mapas, variáveis `import.meta.env`).<br>**Por que está vazia:** As configurações atuais de rede e cache já estão centralizadas diretamente em `lib/api.ts` e `App.tsx`. |
+| **`features/`**[cite: 4] | 🟢 **Em Uso** | **Para que serve:** Segue o padrão *Feature-Sliced Design*. Agrupa lógicas, subcomponentes ou hooks que pertencem exclusivamente a um domínio específico (ex: lógica analítica do dashboard, componentes específicos de campanhas), sem poluir a pasta global `components/`. |
+| **`hooks/`**[cite: 4] | ⚪ **Vazia (Reserva)** | **Para que serve:** Armazenar *Custom Hooks* transversais da aplicação (ex: `useDebounce` para busca, `useLocalStorage`, `useMediaQuery`).<br>**Por que está vazia:** Os hooks de busca de dados (`useQuery` / `useMutation`) são mantidos co-localizados dentro das próprias páginas ou em `features/`, facilitando a leitura do código em um só lugar. |
+| **`layouts/`**[cite: 4] | 🟢 **Essencial** | Contém o molde estrutural da interface administrativa (`AdminLayout.tsx`). É responsável por manter a **Sidebar Azul fixa** no computador (`h-screen`), o **Drawer retrátil** no celular, o botão fixo de **Sair do Sistema** e a tag `<Outlet />` onde as páginas são trocadas sem recarregar o menu. |
+| **`lib/`**[cite: 4] | 🟢 **Essencial** | Adapta e configura bibliotecas de terceiros para o projeto. Contém o arquivo **`api.ts`**, que cria a instância única do **Axios**[cite: 2] apontando para o backend (`admin-api`) e anexa automaticamente o token de autenticação nas requisições. |
+| **`pages/`**[cite: 4] | 🟢 **Essencial** | Representa as visões completas (*Views*) acessadas pelo navegador: `Dashboard.tsx`, `Usuarios.tsx`, `Campanhas.tsx`, `Instituicoes.tsx` e `Login.tsx`. Cada arquivo aqui orquestra a tabela, a barra de pesquisa, os modais CRUD e a integração com o React Query. |
+| **`routes/`**[cite: 4] | ⚪ **Vazia (Reserva)** | **Para que serve:** Isolar arquivos de roteamento quando o sistema possui dezenas de módulos e múltiplos níveis de permissão (*Route Guards*).<br>**Por que está vazia:** Como o painel administrativo possui um conjunto enxuto e direto de rotas protegidas sob o `AdminLayout`, toda a árvore do `react-router-dom`[cite: 2] foi declarada diretamente no arquivo `App.tsx`[cite: 4]. |
+| **`services/`**[cite: 4] | ⚪ **Vazia (Reserva)** | **Para que serve:** Na arquitetura tradicional, guarda arquivos como `usuarioService.ts` contendo funções `getAll()`, `create()`, `delete()`.<br>**Por que está vazia:** Como adotamos o **TanStack React Query**[cite: 2] aliado ao cliente enxuto `lib/api.ts`, as chamadas `api.get('/api/usuarios')` e `api.post(...)` são declaradas diretamente dentro de `queryFn` e `mutationFn` nas páginas, eliminando uma camada inteira de código repetitivo (*boilerplate*). |
+| **`store/`**[cite: 4] | ⚪ **Vazia (Reserva)** | **Para que serve:** Gerenciar estado global no navegador (via Redux, Zustand ou Context API).<br>**Por que está vazia:** **95% do estado de um painel admin vem do banco de dados**, e o **React Query** já funciona como o gerenciador de cache global desses dados[cite: 2]. A sessão básica (`token` e `user`) é persistida no `localStorage`. A pasta `store/` fica reservada caso no futuro seja necessário guardar estados complexos exclusivos do cliente (ex: preferências de tema escuro/claro ou fila de uploads em background). |
+| **`utils/`**[cite: 4] | ⚪ **Vazia (Reserva)** | **Para que serve:** Guardar funções utilitárias puras em TypeScript que não dependem do React (ex: formatação avançada de CPF/CNPJ, cálculos matemáticos, conversores customizados).<br>**Por que está vazia:** As formatações atuais (como geração de arquivo CSV via `Blob` e datas ISO) são leves e estão implementadas diretamente nos handlers das páginas onde são utilizadas. |
+| **`App.tsx` & `main.tsx`**[cite: 4] | 🟢 **Essencial** | `main.tsx` monta a aplicação no DOM (`react-dom/client`)[cite: 2, 4] e importa o `index.css`[cite: 4]. `App.tsx` instancia o `QueryClient` (configurando cache e tentativas de reconexão) e declara as rotas do `react-router-dom`[cite: 2, 4]. |
+
+---
+
+## 3. Diagrama de Arquitetura de Componentes e Fluxo de Dados
 
 ```mermaid
 flowchart TB
-    subgraph Bootstrap ["Inicialização e Providers"]
-        IndexHTML["index.html & main.tsx\nBootstrap do React DOM Client"]
+    subgraph Bootstrap ["1. Inicialização e Providers (Raiz de src/)"]
+        IndexHTML["index.html & main.tsx\nBootstrap do React DOM Client + index.css"]
         AppTSX["App.tsx\nQueryClientProvider + React Router DOM"]
     end
 
-    subgraph LayoutShell ["Camada de Layout e Controle de Sessão"]
+    subgraph LayoutShell ["2. Camada de Layout e Controle de Sessão (src/layouts/)"]
         AdminLayout["layouts/AdminLayout.tsx\nSidebar Azul Fixa no Desktop (lg:static h-screen)\nDrawer Deslizante no Mobile com Backdrop\nOrdem Fixa: 1. Dashboard | 2. Usuários | 3. Campanhas | 4. Instituições\nBotão Sempre Visível: Sair do Sistema"]
         LoginPage["pages/Login.tsx\nAutenticação do Administrador"]
     end
 
-    subgraph PagesLayer ["Módulos de Visão (Pages)"]
+    subgraph PagesLayer ["3. Módulos de Visão e Domínio (src/pages/ & src/features/ & src/components/)"]
         DashPage["pages/Dashboard.tsx\n4 Cartões KPI + Badge Admin Mais Ativo\nLineChart (Novos Usuários/Mês) + BarChart (Distribuição)\nPainel Ao Vivo de Logs de Atividade"]
         UserPage["pages/Usuarios.tsx\nTabela Compacta + Busca Instantânea\nModal CRUD + Importar CSV / Exportar CSV / Imprimir PDF"]
         CampPage["pages/Campanhas.tsx\nGerenciamento de Campanhas Sanitárias"]
         InstPage["pages/Instituicoes.tsx\nTabela Compacta + Busca Instantânea\nModal CRUD com Select: Hospital | UBS | Clínica"]
     end
 
-    subgraph StateAndNetwork ["Gerenciamento de Server State e Rede"]
+    subgraph StateAndNetwork ["4. Server-State Cache e Rede (Substitui store/ e services/)"]
         ReactQuery["@tanstack/react-query\nuseQuery (Leitura Cacheada) & useMutation (Escrita)\nqueryClient.invalidateQueries()"]
-        ApiService["lib/api.ts (Instância Axios)\nComunicação HTTP com o módulo :admin-api"]
+        ApiService["lib/api.ts (Instância Axios)\nComunicação HTTP REST com o módulo :admin-api"]
     end
 
     IndexHTML --> AppTSX
@@ -43,30 +118,6 @@ flowchart TB
     AdminLayout -- "Renderiza via <Outlet/>" --> DashPage & UserPage & CampPage & InstPage
     DashPage & UserPage & CampPage & InstPage --> ReactQuery
     ReactQuery --> ApiService
-```
-
----
-
-## 3. Estrutura Física de Diretórios
-
-```text
-Conecta-Vida-Admin/conecta-vida-admin/
- ├── .oxlintrc.json               # Configuração do linter estático Oxlint
- ├── index.html                   # Template raiz da SPA
- ├── package.json                 # Dependências e scripts Vite / TypeScript
- ├── src/
- │   ├── lib/
- │   │   └── api.ts               # Cliente HTTP Axios configurado para a admin-api
- │   ├── layouts/
- │   │   └── AdminLayout.tsx      # Estrutura mestre (Sidebar Azul + Header Mobile + Outlet)
- │   ├── pages/
- │   │   ├── Dashboard.tsx        # Visão analítica com gráficos Recharts e auditoria
- │   │   ├── Usuarios.tsx         # CRUD de usuários + Importação/Exportação CSV e PDF
- │   │   ├── Campanhas.tsx        # CRUD e acompanhamento de campanhas
- │   │   ├── Instituicoes.tsx     # CRUD de instituições (Hospital, UBS, Clínica)
- │   │   └── Login.tsx            # Autenticação e armazenamento de sessão
- │   ├── App.tsx                  # Definição das rotas e QueryClientProvider
- │   └── main.tsx                 # Ponto de montagem da árvore React
 ```
 
 ---
@@ -90,7 +141,7 @@ Conecta-Vida-Admin/conecta-vida-admin/
 ### 4.2. Painel Analítico e Auditoria Ao Vivo (`src/pages/Dashboard.tsx`)
 Consome os dados agregados do endpoint `GET /api/dashboard/stats`:
 * **Indicadores de Topo (KPIs):** Exibe o selo de destaque **Admin mais ativo** (`adminMaisAtivo`) no cabeçalho e 4 cartões numéricos em grid responsivo (`grid-cols-1 sm:grid-cols-2 lg:grid-cols-4`): *Usuários Cadastrados*, *Instituições Parceiras*, *Notícias Cadastradas* e *Campanhas Ativas*.
-* **Hierarquia dos Gráficos (`Recharts`):**
+* **Hierarquia dos Gráficos (`Recharts`):**[cite: 2]
   1. **Primeiro Plano (Topo Esquerdo):** Gráfico de Linha (`LineChart`) exibindo a **Entrada de Novos Usuários por Mês** (`usuariosPorMes`), permitindo analisar a curva de crescimento.
   2. **Segundo Plano (Base Esquerda):** Gráfico de Barras (`BarChart`) comparando a **Distribuição Geral do Sistema** entre todas as entidades cadastradas.
 * **Estabilidade Geométrica no Zoom (`min-w-0`):** Todos os blocos de grade e containers dos gráficos aplicam `min-w-0` e alturas controladas para impedir que o `ResponsiveContainer` do Recharts expanda horizontalmente ou quebre o layout quando o administrador altera o zoom do navegador[cite: 2].
@@ -201,3 +252,4 @@ flowchart LR
 * **RNF-FE-01 — Ausência de Conflitos CSS (`cssConflict` Zero):** As classes utilitárias do Tailwind CSS não devem misturar posicionamentos conflitantes (`fixed` e `sticky` simultâneos no mesmo elemento/breakpoint), utilizando `fixed lg:static` na barra lateral.
 * **RNF-FE-02 — Contenção de Overflow e Redimensionamento Fluido:** O layout principal e as páginas aplicam `overflow-x-hidden` e `min-w-0`, garantindo que textos longos de auditoria (`break-all whitespace-normal`) e gráficos SVG se ajustem a qualquer resolução ou nível de zoom.
 * **RNF-FE-03 — Qualidade Estática e Performance de Build:** O código-fonte é validado via **TypeScript** (`tsc`) e **Oxlint** (`.oxlintrc.json`), empacotado com **Vite/Rolldown** para inicialização instantânea[cite: 2].
+* **RNF-FE-04 — Evolução Escalável de Diretórios:** Novas funcionalidades devem respeitar o propósito das pastas de `src/`[cite: 4] — mantendo chamadas de servidor gerenciadas pelo React Query e utilizando as pastas estruturais (`hooks/`, `utils/`, `config/`, `components/`, `features/`) apenas quando houver reutilização real entre duas ou mais telas.
