@@ -288,7 +288,6 @@ sequenceDiagram
     Reg-->>FCM: Lista de Tokens FCM
     FCM->>Mobile: Dispara Push Notification via Firebase Cloud Messaging
     deactivate FCM
-
 ```
 
 ---
