@@ -54,6 +54,7 @@ test/                          # testes de unidade (modelos e regras)
 | Detalhes | Capa, texto, abrangência (link do mapa só para cidades), órgão publicador com telefone/site, link da matéria original, inscrição na campanha (titular e dependentes), compartilhar, ouvir o texto. |
 | Unidades de saúde | Cidade pelo GPS (ou perfil), qualquer município do Brasil (CNES), ordenadas pela distância, filtros por tipo e 24 h, ligar e "Como chegar"; botão **Trocar** cidade. |
 | Cronograma | Campanhas em que a pessoa (ou dependente) está inscrita. |
+| Automático | Com o GPS ligado, a cidade do perfil acompanha onde a pessoa está (1×/dia) — filtro, recomendados, alertas e unidades se ajustam sozinhos. Alertas novos chegam em tempo real; lembrete na tela de Notificações um dia antes da campanha. |
 | Ajustes | Perfil, regiões de interesse, GPS, notificações, acessibilidade, dependentes, autorizações (só quando há pedido), **Painel administrativo** (só para administradores), política de privacidade, sair e excluir conta. |
 
 ### Como os "Recomendados" são escolhidos

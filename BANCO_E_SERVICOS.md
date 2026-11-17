@@ -124,7 +124,7 @@ erDiagram
 | Função | Quem chama | O que faz |
 | :--- | :--- | :--- |
 | `admin-usuarios` | Painel (administrador logado) | Cria conta já confirmada; `acao: "definir_senha"` define a senha de qualquer usuário (inclusive contas antigas). |
-| `importar-dados` | Agendador (segredo do Vault) ou administrador | `noticias`: feeds do Ministério da Saúde e da Agência SP, com capa e abrangência; `imagens`: completa capas faltantes (ignora o logotipo genérico do gov.br); `unidades`: CNES de Bragança Paulista. |
+| `importar-dados` | Agendador (segredo do Vault) ou administrador | `noticias`: feeds do Ministério da Saúde e da Agência SP, com capa e abrangência; `imagens`: completa capas faltantes (ignora o logotipo genérico do gov.br); `unidades`: CNES de Bragança Paulista; `alertas`: nível semanal de dengue, chikungunya e zika do **InfoDengue (Fiocruz/FGV)** nas cidades dos usuários — nível laranja/vermelho vira ALERTA, e o alerta é arquivado quando o nível baixa. |
 | `unidades-proximas` | App (usuário logado) | Recebe `{cidade, uf}`, acha o município no IBGE, busca UBS/UPA/hospitais/CAPS/SAMU no CNES (cache de 30 dias) e devolve com coordenadas. |
 | `entrar-conta-antiga` | App e painel, quando o login falha | Confere a senha de contas criadas pela API Java (hash antigo ou a própria API) e cria o login no Supabase com a mesma senha. |
 
@@ -138,7 +138,8 @@ erDiagram
 | `conecta-importar-unidades` | dia 1, 3h30 | `app.chamar_importacao('unidades')` |
 | `conecta-calendario-saude` | dia 1, 6h15 | `app.publicar_campanha_do_mes()` (Novembro Azul, Dezembro Vermelho…) |
 | `conecta-encerrar-campanhas` | todo dia 3h05 | `app.encerrar_campanhas_vencidas()` |
-| `conecta-arquivar-noticias` | todo dia 3h20 | `app.arquivar_noticias_antigas()` (> 60 dias) |
+| `conecta-arquivar-noticias` | todo dia 3h20 | `app.arquivar_noticias_antigas()` (notícias importadas > 60 dias e alertas > 30 dias) |
+| `conecta-alertas-infodengue` | todo dia 7h40 | `app.chamar_importacao('alertas')` → alertas automáticos de arboviroses |
 
 Onde ver: painel do Supabase → **Integrations → Cron** (histórico de execuções) e **Edge Functions → importar-dados → Logs**.
 

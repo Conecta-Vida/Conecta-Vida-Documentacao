@@ -39,7 +39,7 @@ O **Conecta Vida** reúne em um só lugar as informações de saúde pública qu
 
 * **Notícias** do Ministério da Saúde e do Governo do Estado de SP, importadas automaticamente, com imagem e link da matéria original.
 * **Campanhas** (vacinação, doação de sangue, Novembro Azul…) com inscrição pelo app — para o titular e seus dependentes.
-* **Alertas** de saúde que chegam em tempo real.
+* **Alertas** de saúde que chegam em tempo real — inclusive automáticos de dengue, chikungunya e zika quando o InfoDengue (Fiocruz/FGV) aponta nível laranja ou vermelho na cidade.
 * **Unidades de saúde do SUS** de qualquer cidade do Brasil (dados oficiais do CNES), ordenadas pela distância do usuário.
 * **Acessibilidade:** tamanho de texto, alto contraste, modo escuro, redução de movimento e leitura em voz alta.
 
@@ -72,6 +72,7 @@ flowchart TB
 
     subgraph Externos ["Fontes oficiais e serviços externos"]
         MS["gov.br/saude (RSS)"]
+        INFO["InfoDengue (Fiocruz/FGV)"]
         SP["Agência SP (RSS)"]
         CNES["CNES — dados abertos"]
         IBGE["IBGE — municípios"]
@@ -84,7 +85,7 @@ flowchart TB
     App -- "supabase_flutter (HTTPS)" --> Auth & DB & RT & EF
     App --> OSM
     CRON --> EF
-    EF --> MS & SP & CNES & IBGE
+    EF --> MS & SP & CNES & IBGE & INFO
     DB --> RT
 ```
 
@@ -193,7 +194,7 @@ flowchart LR
 * **RF04 — Inscrições:** titular e dependentes ativos podem se inscrever em campanhas abertas; o gestor vê a lista de inscritos.
 * **RF05 — Dependentes:** menores/tutelados entram com declaração do responsável; adultos precisam autorizar o vínculo; limite de 10 por titular.
 * **RF06 — Unidades de saúde:** lista oficial (CNES) de qualquer cidade do Brasil, com distância, telefone e rota.
-* **RF07 — Automação:** importação de notícias (2×/dia) e unidades (mensal), campanha do mês do calendário de saúde, encerramento de campanhas vencidas e arquivamento de notícias com mais de 60 dias.
+* **RF07 — Automação:** importação de notícias (2×/dia) e unidades (mensal), **alertas de dengue/chikungunya/zika pelo InfoDengue (diário)**, campanha do mês do calendário de saúde, encerramento de campanhas vencidas, arquivamento de notícias (> 60 dias) e alertas (> 30 dias) e **cidade do usuário atualizada pelo GPS** no app.
 * **RF08 — Administração:** criar contas confirmadas, definir permissão, **definir a senha de outro usuário**, exportar CSV/PDF, auditoria em `logs_atividade`.
 
 ### 6.2. Requisitos Não Funcionais (RNF)
