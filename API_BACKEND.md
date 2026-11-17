@@ -1,3 +1,5 @@
+> ⚠️ **Documento histórico.** Esta é a especificação da API Java/Spring Boot usada até novembro de 2026. O projeto hoje usa o **Supabase** diretamente (veja [`README.md`](./README.md) e [`BANCO_E_SERVICOS.md`](./BANCO_E_SERVICOS.md)). O conteúdo abaixo é mantido para registro da evolução da arquitetura.
+
 # ⚙️ Especificação Técnica da API, Backend e Banco de Dados (`conecta-vida-backend`)
 
 **Pacote Raiz:** `br.edu.ifsp.conectaavida`  
